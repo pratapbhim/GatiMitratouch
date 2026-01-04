@@ -99,6 +99,14 @@ io.on("connection", (socket) => {
     io.to(data.target).emit("muted");
   });
 
+  // --- Speaking indicator broadcast ---
+  socket.on("speaking", (data) => {
+    const roomId = data.meetingId || data.roomId;
+    const { userId, isSpeaking } = data;
+    // Broadcast to all in the room
+    io.to(roomId).emit("speaking", { userId, isSpeaking });
+  });
+
   // --- Message Pinning ---
   socket.on("pin-message", (data) => {
     const meetingId = data.meetingId || data.roomId;

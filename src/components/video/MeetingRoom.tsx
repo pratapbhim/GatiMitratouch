@@ -17,6 +17,19 @@ export default function MeetingRoom({ meetingId }: { meetingId: string }) {
   // Fixed: Only declare participants once
   const participants = useMeetingStore((s) => s.participants);
   const chat = useMeetingStore((s) => s.chat);
+  const setParticipantSpeaking = useMeetingStore((s) => s.setParticipantSpeaking);
+    // Listen for speaking events and update Zustand
+    useEffect(() => {
+      const socket = require("@/lib/socket").getSocket("http://192.168.31.82:5000");
+      if (!socket) return;
+      const onSpeaking = ({ userId, isSpeaking }: { userId: string, isSpeaking: boolean }) => {
+        setParticipantSpeaking(userId, isSpeaking);
+      };
+      socket.on("speaking", onSpeaking);
+      return () => {
+        socket.off("speaking", onSpeaking);
+      };
+    }, [setParticipantSpeaking]);
   
   // Debug: Log Zustand participants on every change
   useEffect(() => {
@@ -359,14 +372,21 @@ export default function MeetingRoom({ meetingId }: { meetingId: string }) {
 
 
   // Ensure every participant has all required fields for ParticipantCard
-  const participantCards = participants.map((p: any) => ({
-    id: p.id,
-    name: p.name || 'Unknown',
-    avatar: p.avatar || '/logo.png',
-    isMuted: typeof p.isMuted === 'boolean' ? p.isMuted : false,
-    deviceType: p.deviceType || 'desktop',
-    role: p.role || 'participant',
-  }));
+  // Per-participant state: only local gets localStream/isMuted, others use their own
+  const participantCards = participants.map((p: any) => {
+    // Use a unique property (id or email) to identify local participant
+    const isLocal = session?.user?.email && p.email && p.email === session.user.email;
+    return {
+      id: p.id,
+      name: p.name || 'Unknown',
+      avatar: p.avatar || '/logo.png',
+      isMuted: isLocal ? isMuted : (typeof p.isMuted === 'boolean' ? p.isMuted : false),
+      deviceType: p.deviceType || 'desktop',
+      role: p.role || 'participant',
+      audioStream: isLocal ? localStream : undefined,
+      email: p.email,
+    };
+  });
 
   return (
     <div className="relative min-h-screen flex flex-col bg-gradient-to-br from-[#f7f9fb] via-[#eaf3f7] to-[#e0f7ef]">

@@ -7,6 +7,12 @@ interface Participant {
   name: string;
   role: string;
   isScreenSharing?: boolean;
+  email?: string;
+  avatar?: string;
+  isMuted?: boolean;
+  deviceType?: 'desktop' | 'mobile';
+  audioStream?: MediaStream | null;
+  isSpeaking?: boolean;
 }
 
 interface ParticipantGridProps {

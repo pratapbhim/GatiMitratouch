@@ -153,12 +153,21 @@ export function useWebRTCPeer({
     pc.onnegotiationneeded = async () => {
       if (isInitiator && socket) {
         try {
+          // Only create offer if signalingState is 'stable'
+          if (pc.signalingState !== 'stable') {
+            console.warn(`[Peer ${peerId}] Skipping negotiation: signalingState is ${pc.signalingState}`);
+            return;
+          }
           const offer = await pc.createOffer({
             offerToReceiveAudio: true,
             offerToReceiveVideo: false // Audio only focus
           });
+          // Defensive: check m-line order and signaling state
+          if (pc.signalingState !== 'stable') {
+            console.warn(`[Peer ${peerId}] Not setting localDescription, signalingState is ${pc.signalingState}`);
+            return;
+          }
           await pc.setLocalDescription(offer);
-          
           socket.emit("signal", {
             meetingId,
             to: peerId,
@@ -177,33 +186,42 @@ export function useWebRTCPeer({
   // Handle incoming signals
   const handleSignal = useCallback(async ({ from, data }: SignalData) => {
     console.log(`[Signal from ${from}]`, data.sdp?.type || "candidate");
-    
     let pc = peers.current[from];
     if (!pc) {
       pc = createPeerConnection(from, false);
       peers.current[from] = pc;
     }
-
     try {
       if (data.sdp) {
         const remoteDesc = new RTCSessionDescription(data.sdp);
-        await pc.setRemoteDescription(remoteDesc);
-        
+        // Defensive: only set remoteDescription if possible
+        if (
+          (data.sdp.type === "offer" && pc.signalingState === "stable") ||
+          (data.sdp.type === "answer" && pc.signalingState === "have-local-offer")
+        ) {
+          await pc.setRemoteDescription(remoteDesc);
+        } else {
+          console.warn(`[Peer ${from}] Skipping setRemoteDescription: type=${data.sdp.type}, signalingState=${pc.signalingState}`);
+          return;
+        }
         if (data.sdp.type === "offer") {
           const answer = await pc.createAnswer({
             offerToReceiveAudio: true,
             offerToReceiveVideo: false
           });
-          await pc.setLocalDescription(answer);
-          
-          if (socket) {
-            socket.emit("signal", {
-              meetingId,
-              to: from,
-              data: { sdp: pc.localDescription }
-            });
+          if (pc.signalingState === "have-remote-offer") {
+            await pc.setLocalDescription(answer);
+            if (socket) {
+              socket.emit("signal", {
+                meetingId,
+                to: from,
+                data: { sdp: pc.localDescription }
+              });
+            }
+            console.log(`[Peer ${from}] Sent audio answer`);
+          } else {
+            console.warn(`[Peer ${from}] Skipping setLocalDescription for answer, signalingState=${pc.signalingState}`);
           }
-          console.log(`[Peer ${from}] Sent audio answer`);
         }
       } else if (data.candidate) {
         try {

@@ -5,6 +5,7 @@ interface Participant {
   name: string;
   org?: string;
   isMuted: boolean;
+  isSpeaking?: boolean;
   avatar?: string;
   email?: string;
   deviceType?: 'desktop' | 'mobile';
@@ -35,6 +36,7 @@ interface MeetingState {
   setParticipants: (ps: Participant[]) => void;
   setPinnedMessage: (msg: ChatMessage | null) => void;
   clearMeetingState: () => void;
+  setParticipantSpeaking: (id: string, isSpeaking: boolean) => void;
 }
 
 export const useMeetingStore = create<MeetingState>((set) => ({
@@ -80,5 +82,10 @@ export const useMeetingStore = create<MeetingState>((set) => ({
     participants: [],
     chat: [],
     pinnedMessage: null,
+  })),
+  setParticipantSpeaking: (id, isSpeaking) => set((state) => ({
+    participants: state.participants.map(p =>
+      p.id === id ? { ...p, isSpeaking } : p
+    )
   })),
 }));
