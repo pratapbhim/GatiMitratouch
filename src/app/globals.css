@@ -24,3 +24,33 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Animate participant grid sliding under header on scroll */
+.animate-slide-up {
+  animation: slideUpGrid 0.4s cubic-bezier(0.4,0,0.2,1);
+}
+
+@keyframes slideUpGrid {
+  0% {
+    transform: translateY(32px);
+    opacity: 0.7;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Hide all scrollbars but keep scrolling functional */
+/* For Chrome, Edge, Safari */
+*::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
+}
+
+/* For Firefox */
+* {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
